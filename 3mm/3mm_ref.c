@@ -63,28 +63,40 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
 {
   /* E := A*B */
   for (int i = 0; i < _PB_NI; i++)
+  {
     for (int j = 0; j < _PB_NJ; j++)
     {
       E[i][j] = 0;
       for (int k = 0; k < _PB_NK; ++k)
+      {
         E[i][j] += A[i][k] * B[k][j];
+      }
     }
+  }
   /* F := C*D */
   for (int i = 0; i < _PB_NJ; i++)
+  {
     for (int j = 0; j < _PB_NL; j++)
     {
       F[i][j] = 0;
       for (int k = 0; k < _PB_NM; ++k)
+      {
         F[i][j] += C[i][k] * D[k][j];
+      }
     }
+  }
   /* G := E*F */
   for (int i = 0; i < _PB_NI; i++)
+  {
     for (int j = 0; j < _PB_NL; j++)
     {
       G[i][j] = 0;
       for (int k = 0; k < _PB_NJ; ++k)
+      {
         G[i][j] += E[i][k] * F[k][j];
+      }
     }
+  }
 }
 
 int main(int argc, char **argv)

@@ -42,6 +42,7 @@ function single_validation_build
 function single_bench_build
 {
   echo "== Building $1 for benchmarking with \"$2\"" >&2
+  single_clean $1
   make CFLAGS="-DPOLYBENCH_TIME $2" BENCHMARK=$1
 }
 

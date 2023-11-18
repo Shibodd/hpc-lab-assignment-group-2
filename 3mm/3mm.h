@@ -2,8 +2,9 @@
 # define _3MM_H
 
 /* Default to STANDARD_DATASET. */
-# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
-#  define STANDARD_DATASET
+# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(MEDIUM_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+_Static_assert(0, "NO DATASET SPECIFIED!");
+#define STANDARD_DATASET
 # endif
 
 /* Do not define anything if the user manually defines the size. */
@@ -24,6 +25,16 @@
 #   define NL 128
 #   define NM 128
 #  endif
+
+
+#  ifdef MEDIUM_DATASET
+#   define NI 256
+#   define NJ 256
+#   define NK 256
+#   define NL 256
+#   define NM 256
+#  endif
+
 
 #  ifdef STANDARD_DATASET /* Default if unspecified. */
 #   define NI 1024

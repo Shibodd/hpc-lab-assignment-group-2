@@ -15,7 +15,7 @@ function bench()
   single_validation $1
 
   # Then benchmark with different configurations
-  local flags="";
+  local flags="-DSTANDARD_DATASET";
   single_bench_build $1 "$flags"
   single_bench $1
   echo $1,$flags,$time | tee -a $RESULTS_FILE

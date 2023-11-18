@@ -28,11 +28,11 @@ _Static_assert(0, "NO DATASET SPECIFIED!");
 
 
 #  ifdef MEDIUM_DATASET
-#   define NI 256
-#   define NJ 256
-#   define NK 256
-#   define NL 256
-#   define NM 256
+#   define NI 512
+#   define NJ 512
+#   define NK 512
+#   define NL 512
+#   define NM 512
 #  endif
 
 

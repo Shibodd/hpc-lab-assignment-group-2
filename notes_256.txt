@@ -1,0 +1,33 @@
+3mm_ref - serial reference version
+In practice:
+t = 1.012 (best execution time)
+IPC > 1
+
+Conclusion:
+Most likely compute bound (IPC > 1)
+
+
+3mm_sections - run A*B and C*D in parallel tasks
+In theory:
+s = 2 (Parallelized portion speedup)
+p = 2/3 (Portion of the program that is parallelized)
+S_e = 1.5 (Amdahl's law expected speedup)
+
+In practice:
+t = 0.6925
+S = 1.46 (actual speedup w.r.t. reference)
+IPC > 1
+
+Conclusion:
+S_e = S & IPC > 1 => Still compute bound
+
+
+3mm_parallel_matmuls - parallelize each matmul
+In theory:
+s = 4
+p = 1
+S_e = 4
+
+In practice:
+t = 0.275
+S = 3.67

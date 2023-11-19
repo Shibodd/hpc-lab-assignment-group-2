@@ -39,4 +39,8 @@ Low hanging fruit: compute element in a local and THEN write to memory.
 
 3mm_parallel_matmuls_opt - compute linear combinations in a local
 In practice:
-Faster, but IPC still 0.37
+t = 4.21
+S = 3.95
+S_non_opt = 1.22
+IPC = 0.42
+CacheMiss% = 6.9%

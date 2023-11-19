@@ -50,6 +50,7 @@ static void print_array(int ni, int nl,
   fprintf(stderr, "\n");
 }
 
+
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
@@ -61,8 +62,28 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
                        DATA_TYPE POLYBENCH_2D(D, NM, NL, nm, nl),
                        DATA_TYPE POLYBENCH_2D(G, NI, NL, ni, nl))
 {
+  POLYBENCH_2D_ARRAY_DECL(B_t, DATA_TYPE, NJ, NK, nj, nk);
+  POLYBENCH_2D_ARRAY_DECL(D_t, DATA_TYPE, NL, NM, nl, nm);
+  POLYBENCH_2D_ARRAY_DECL(F_t, DATA_TYPE, NL, NJ, nl, nj);
+
   #pragma omp parallel
   {
+    // B'
+    #pragma omp for
+    for (int i = 0; i < _PB_NK; ++i) {
+      for (int j = 0; j < _PB_NJ; ++j) {
+        (*B_t)[j][i] = B[i][j];
+      }
+    }
+
+    // D'
+    #pragma omp for
+    for (int i = 0; i < _PB_NM; ++i) {
+      for (int j = 0; j < _PB_NL; ++j) {
+        (*D_t)[j][i] = D[i][j];
+      }
+    }
+
     #pragma omp for
     /* E := A*B */
     for (int i = 0; i < _PB_NI; i++)
@@ -72,7 +93,7 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
         DATA_TYPE ans = 0;
         for (int k = 0; k < _PB_NK; ++k)
         {
-          ans += A[i][k] * B[k][j];
+          ans += A[i][k] * (*B_t)[j][k];
         }
         E[i][j] = ans;
       }
@@ -87,9 +108,17 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
         DATA_TYPE ans = 0;
         for (int k = 0; k < _PB_NM; ++k)
         {
-          ans += C[i][k] * D[k][j];
+          ans += C[i][k] * (*D_t)[j][k];
         }
         F[i][j] = ans;
+      }
+    }
+
+    #pragma omp for
+    // F'
+    for (int i = 0; i < _PB_NL; ++i) {
+      for (int j = 0; j < _PB_NJ; ++j) {
+        (*F_t)[j][i] = F[i][j];
       }
     }
 
@@ -102,12 +131,16 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
         DATA_TYPE ans = 0;
         for (int k = 0; k < _PB_NJ; ++k)
         {
-          ans += E[i][k] * F[k][j];
+          ans += E[i][k] * (*F_t)[j][k];
         }
         G[i][j] = ans;
       }
     }
   }
+
+  POLYBENCH_FREE_ARRAY(B_t);
+  POLYBENCH_FREE_ARRAY(D_t);
+  POLYBENCH_FREE_ARRAY(F_t);
 }
 
 int main(int argc, char **argv)

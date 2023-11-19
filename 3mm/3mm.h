@@ -2,7 +2,7 @@
 # define _3MM_H
 
 /* Default to STANDARD_DATASET. */
-# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(MEDIUM_DATASET) && !defined(STANDARD_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+# if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(STANDARD_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
 _Static_assert(0, "NO DATASET SPECIFIED!");
 #define STANDARD_DATASET
 # endif
@@ -25,16 +25,6 @@ _Static_assert(0, "NO DATASET SPECIFIED!");
 #   define NL 128
 #   define NM 128
 #  endif
-
-
-#  ifdef MEDIUM_DATASET
-#   define NI 512
-#   define NJ 512
-#   define NK 512
-#   define NL 512
-#   define NM 512
-#  endif
-
 
 #  ifdef STANDARD_DATASET /* Default if unspecified. */
 #   define NI 1024

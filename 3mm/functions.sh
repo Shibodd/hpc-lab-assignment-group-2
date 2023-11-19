@@ -59,8 +59,10 @@ function single_validation
   if ! cmp --silent "$DUMP_PATH" "$REFDUMP_PATH";
   then
     echo "== Bad output! Check $DUMP_PATH" >&2
-    exit 1;
+    return 1;
   fi
+
+  return 0;
 }
 
 # Cleans, builds, runs the benchmark and dumps stderr to REFDUMP_PATH

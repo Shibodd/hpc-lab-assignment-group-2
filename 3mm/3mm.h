@@ -26,7 +26,6 @@ _Static_assert(0, "NO DATASET SPECIFIED!");
 #   define NM 128
 #  endif
 
-
 #  ifdef MEDIUM_DATASET
 #   define NI 512
 #   define NJ 512
@@ -35,8 +34,7 @@ _Static_assert(0, "NO DATASET SPECIFIED!");
 #   define NM 512
 #  endif
 
-
-#  ifdef STANDARD_DATASET /* Default if unspecified. */
+#  ifdef STANDARD_DATASET
 #   define NI 1024
 #   define NJ 1024
 #   define NK 1024

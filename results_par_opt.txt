@@ -1,0 +1,5 @@
+3mm_parallel_matmuls_opt,-fopenmp -DMINI_DATASET,0.000334
+3mm_parallel_matmuls_opt,-fopenmp -DSMALL_DATASET,0.017906
+3mm_parallel_matmuls_opt,-fopenmp -DSTANDARD_DATASET,8.829606
+3mm_parallel_matmuls_opt,-fopenmp -DLARGE_DATASET,63.100898
+3mm_parallel_matmuls_opt,-fopenmp -DEXTRALARGE_DATASET,540

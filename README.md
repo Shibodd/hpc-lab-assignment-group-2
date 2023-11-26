@@ -26,7 +26,9 @@ And the you can execute them
 3mm_parallel_matmuls_opt     # parallel and optimized code
 
 
+
 ************ RESULT SCRIPT ************
+
 run 
   ./perf_script.sh 
 to calculate performances for the following executables

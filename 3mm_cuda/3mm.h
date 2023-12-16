@@ -3,6 +3,7 @@
 
 /* Default to STANDARD_DATASET. */
 # if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(MEDIUM_DATASET) && !defined(STANDARD_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+#warning NO DATASET SPECIFIED!
 #define STANDARD_DATASET
 # endif
 
@@ -65,8 +66,8 @@
 # define _PB_NM POLYBENCH_LOOP_BOUND(NM,nm)
 
 # ifndef DATA_TYPE
-#  define DATA_TYPE double
-#  define DATA_PRINTF_MODIFIER "%0.2lf "
+#  define DATA_TYPE float
+#  define DATA_PRINTF_MODIFIER "%0.2f "
 # endif
 
 

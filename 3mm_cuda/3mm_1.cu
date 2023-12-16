@@ -52,6 +52,118 @@ static void print_array(int ni, int nl,
   fprintf(stderr, "\n");
 }
 
+
+
+/* GPU CODE*/
+
+#define __devinline__ __device__ __forceinline__
+
+// Intended for use as a zero-cost abstraction by the GPU
+class GpuMatrix {
+  DATA_TYPE* ptr_;
+  int cols_;
+  int rows_;
+
+public:
+  __devinline__ GpuMatrix(DATA_TYPE* ptr, int rows, int cols) {
+    ptr_ = ptr;
+    rows_ = rows;
+    cols_ = cols;
+  }
+
+  __devinline__ DATA_TYPE& operator() (int row, int col) const
+  {
+    return ptr_[row * cols() + col];
+  }
+  __devinline__ int rows() const { return rows_; }
+  __devinline__ int cols() const { return cols_; }
+
+#undef __devinline__
+};
+
+__global__ void gemm_gpu(DATA_TYPE* __restrict__ ans, DATA_TYPE* __restrict__ a, DATA_TYPE* __restrict__ b, int ni, int nj, int nk)
+{
+  const GpuMatrix ANS(ans, ni, nj);
+  const GpuMatrix A(a, ni, nk);
+  const GpuMatrix B(b, nk, nj);
+
+  int row = threadIdx.y + blockIdx.y * blockDim.y;
+  int col = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (row < ni && col < nj) {
+    DATA_TYPE sum = 0.0;
+    for (int k = 0; k < nk; ++k)
+      sum += A(row, k) * B(k, col);
+    ANS(row, col) = sum;
+  }
+}
+
+
+
+/* HOST CODE */
+
+#include <cuda_runtime.h>
+#define gpuErrchk(ans)                  \
+{                                       \
+  gpuAssert((ans), __FILE__, __LINE__); \
+}
+static inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
+{
+  if (code != cudaSuccess)
+  {
+    fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+    if (abort)
+      exit(code);
+  }
+}
+
+
+#include <cassert>
+
+class HostMatrix {
+  void* hostPtr_;
+  void* devPtr_;
+  int rows_;
+  int cols_;
+
+public:
+  // Use RAII to manage device memory (avoid repeating malloc and free)
+  HostMatrix(void* hostPtr, int rows, int cols) 
+      : hostPtr_(hostPtr), devPtr_(nullptr), rows_(rows), cols_(cols) {
+    gpuErrchk(cudaMalloc(&devPtr_, size()));
+    // gpuErrchk(cudaMemset(devPtr_, 0, size()));
+  }
+  ~HostMatrix() {
+    cudaFree(devPtr_);
+  }
+
+  int rows() const { return rows_; }
+  int cols() const { return cols_; }
+  void* devPtr() const { return devPtr_; }
+  void* hostPtr() const { return hostPtr_; }
+  size_t size() const { return rows() * cols() * sizeof(DATA_TYPE); }
+
+  void copy_h2d() const { gpuErrchk(cudaMemcpy(devPtr(), hostPtr(), size(), cudaMemcpyHostToDevice)); }
+  void copy_d2h() const { gpuErrchk(cudaMemcpy(hostPtr(), devPtr(), size(), cudaMemcpyDeviceToHost)); }
+
+#define BLOCK_SIZE 32
+#define BLOCKS(n) (n + (BLOCK_SIZE)-1) / (BLOCK_SIZE)
+  void gemm(const HostMatrix& a, const HostMatrix& b) {
+    assert(rows() == a.rows());
+    assert(cols() == b.cols());
+    assert(a.cols() == b.rows());
+
+    int ni = rows();
+    int nj = cols();
+    int nk = a.cols();
+
+    dim3 gridSize(BLOCKS(nj), BLOCKS(ni));
+    dim3 blockSize(BLOCK_SIZE, BLOCK_SIZE);
+    gemm_gpu<<<gridSize, blockSize>>>((DATA_TYPE*)devPtr(), (DATA_TYPE*)a.devPtr(), (DATA_TYPE*)b.devPtr(), ni, nj, nk);
+  }
+};
+
+
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
@@ -63,42 +175,20 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
                        DATA_TYPE POLYBENCH_2D(D, NM, NL, nm, nl),
                        DATA_TYPE POLYBENCH_2D(G, NI, NL, ni, nl))
 {
-  /* E := A*B */
-  for (int i = 0; i < _PB_NI; i++)
-  {
-    for (int j = 0; j < _PB_NJ; j++)
-    {
-      E[i][j] = 0;
-      for (int k = 0; k < _PB_NK; ++k)
-      {
-        E[i][j] += A[i][k] * B[k][j];
-      }
-    }
-  }
-  /* F := C*D */
-  for (int i = 0; i < _PB_NJ; i++)
-  {
-    for (int j = 0; j < _PB_NL; j++)
-    {
-      F[i][j] = 0;
-      for (int k = 0; k < _PB_NM; ++k)
-      {
-        F[i][j] += C[i][k] * D[k][j];
-      }
-    }
-  }
-  /* G := E*F */
-  for (int i = 0; i < _PB_NI; i++)
-  {
-    for (int j = 0; j < _PB_NL; j++)
-    {
-      G[i][j] = 0;
-      for (int k = 0; k < _PB_NJ; ++k)
-      {
-        G[i][j] += E[i][k] * F[k][j];
-      }
-    }
-  }
+  HostMatrix a(A, NI, NK), b(B, NK, NJ), c(C, NJ, NM), d(D, NM, NL), e(E, NI, NJ), f(F, NJ, NL), g(G, NI, NL);
+  
+  a.copy_h2d();
+  b.copy_h2d();
+  c.copy_h2d();
+  d.copy_h2d();
+
+  e.gemm(a, b); // E = A*B
+  f.gemm(c, d); // F = C*D
+  g.gemm(e, f); // G = E*F
+
+  e.copy_d2h();
+  f.copy_d2h();
+  g.copy_d2h();
 }
 
 int main(int argc, char **argv)

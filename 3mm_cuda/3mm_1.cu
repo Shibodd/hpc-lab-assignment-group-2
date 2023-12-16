@@ -61,31 +61,27 @@ static void print_array(int ni, int nl,
 // Intended for use as a zero-cost abstraction by the GPU
 class GpuMatrix {
   DATA_TYPE* ptr_;
-  int cols_;
-  int rows_;
+  int pitch_;
 
 public:
-  __devinline__ GpuMatrix(DATA_TYPE* ptr, int rows, int cols) {
-    ptr_ = ptr;
-    rows_ = rows;
-    cols_ = cols;
-  }
+  __devinline__ GpuMatrix(DATA_TYPE* ptr, int pitch)
+    : ptr_(ptr), pitch_(pitch) {}
 
   __devinline__ DATA_TYPE& operator() (int row, int col) const
   {
-    return ptr_[row * cols() + col];
+    return ptr()[row * pitch() + col];
   }
-  __devinline__ int rows() const { return rows_; }
-  __devinline__ int cols() const { return cols_; }
+  __devinline__ DATA_TYPE* ptr() const { return ptr_; }
+  __devinline__ int pitch() const { return pitch_; }
 
 #undef __devinline__
 };
 
 __global__ void gemm_gpu(DATA_TYPE* __restrict__ ans, DATA_TYPE* __restrict__ a, DATA_TYPE* __restrict__ b, int ni, int nj, int nk)
 {
-  const GpuMatrix ANS(ans, ni, nj);
-  const GpuMatrix A(a, ni, nk);
-  const GpuMatrix B(b, nk, nj);
+  const GpuMatrix ANS(ans, nj);
+  const GpuMatrix A(a, nk);
+  const GpuMatrix B(b, nj);
 
   int row = threadIdx.y + blockIdx.y * blockDim.y;
   int col = threadIdx.x + blockIdx.x * blockDim.x;
@@ -185,6 +181,7 @@ static void kernel_3mm(int ni, int nj, int nk, int nl, int nm,
   e.gemm(a, b); // E = A*B
   f.gemm(c, d); // F = C*D
   g.gemm(e, f); // G = E*F
+  cudaDeviceSynchronize();
 
   e.copy_d2h();
   f.copy_d2h();

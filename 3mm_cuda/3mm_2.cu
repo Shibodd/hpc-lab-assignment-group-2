@@ -57,6 +57,7 @@ static void print_array(int ni, int nl,
 #define BLOCKS(n) (n + (BLOCK_SIZE)-1) / (BLOCK_SIZE)
 
 /* GPU CODE*/
+#include <cuda_runtime.h>
 
 #define __devinline__ __device__ __forceinline__
 
@@ -92,10 +93,68 @@ public:
     return mat_(row_ + row, col_ + col);
   }
 };
-#undef __devinline__
+
+class Timer {
+  unsigned long long int total_ = 0;
+public:
+  __devinline__ void add(clock_t t) {
+    atomicAdd(&total_, t);
+  }
+  inline __host__ clock_t total() const {
+    return total_;
+  }
+};
+
+class CachedTimer {
+  Timer& timer_;
+  clock_t total_ = 0;
+  __devinline__ void CachedTimer(Timer& timer) : timer_(timer) { }
+
+  __devinline__ void add(clock_t t) {
+    total_ += t;
+  }
+  ~CachedTimer() {
+    timer_.add(total_);
+  }
+};
+
+class MeasureScopeTime<F> {
+  CachedTimer& timer_;
+  clock_t time_;
+public:
+  __devinline__ MeasureScopeTime(CachedTimer& timer)
+    : timer_(timer), time_(0) { time_ = F(); }
+
+  __devinline__ ~MeasureScopeTime() {
+    timer_.add(F() - time_);
+  }
+};
+
+#define MEASURE(timer, fn, block) { MeasureScopeTime<fn> _tim_(timer); { block }}
+// #define MEASURE(timer, block) { block }
+
+__device__ Timer sumTimer;
+__device__ Timer cpyTimer;
+__device__ Timer sync1Timer;
+__device__ Timer sync2Timer;
+__device__ Timer kernelTimer;
+
+static __host__ Timer retrieveTimer(Timer& t) {
+  Timer ans;
+  cudaMemcpyFromSymbol(&ans, t, sizeof(Timer), 0, cudaMemcpyDeviceToHost);
+  return ans;
+}
 
 __global__ void gemm_gpu(DATA_TYPE* __restrict__ ans, DATA_TYPE* __restrict__ a, DATA_TYPE* __restrict__ b, int ni, int nj, int nk)
 {
+  CachedTimer tim_kernel(kernelTimer);
+  CachedTimer tim_sync1(sync1Timer);
+  CachedTimer tim_sync2(sync2Timer);
+  CachedTimer tim_cpy(cpyTimer);
+  CachedTimer tim_sum(sumTimer);
+
+  MeasureScopeTime<clock64> tim_kernel(tim_kernel);
+
   // One thread computes a single element of ans
   // The coordinates of the element that this thread should compute
   int ans_row = threadIdx.y + blockIdx.y * blockDim.y;
@@ -122,18 +181,27 @@ __global__ void gemm_gpu(DATA_TYPE* __restrict__ ans, DATA_TYPE* __restrict__ a,
     const GpuMatrixSpan B_global_tile(B_global, tile_start_k, blockIdx.x * blockDim.x);
 
     // Wait until all block threads are ready to load data (i.e. they have finished the previous iteration)
-    __syncthreads();
 
-    // Each thread in the block should copy one element from global memory to shared memory
-    A_shared_tile[threadIdx.y][threadIdx.x] = A_global_tile(threadIdx.y, threadIdx.x);
-    B_shared_tile[threadIdx.y][threadIdx.x] = B_global_tile(threadIdx.y, threadIdx.x);
+    MEASURE(tim_sync1, {
+      __syncthreads();
+    });
+
+    MEASURE(cpyTimer, {
+      // Each thread in the block should copy one element from global memory to shared memory
+      A_shared_tile[threadIdx.y][threadIdx.x] = A_global_tile(threadIdx.y, threadIdx.x);
+      B_shared_tile[threadIdx.y][threadIdx.x] = B_global_tile(threadIdx.y, threadIdx.x);
+    });
 
     // Wait until the whole tile has been loaded to shared memory
-    __syncthreads();
+    MEASURE(sync2Timer, {
+      __syncthreads();
+    });
 
-    // Accumulate the partial sum
-    for (int k = 0; k < BLOCK_SIZE; ++k)
-      sum += A_shared_tile[threadIdx.y][k] * B_shared_tile[k][threadIdx.x];
+    MEASURE(sumTimer, {
+      // Accumulate the partial sum
+      for (int k = 0; k < BLOCK_SIZE; ++k)
+        sum += A_shared_tile[threadIdx.y][k] * B_shared_tile[k][threadIdx.x];
+    });
   }
 
   // Finally, store the result
@@ -144,7 +212,7 @@ __global__ void gemm_gpu(DATA_TYPE* __restrict__ ans, DATA_TYPE* __restrict__ a,
 
 /* HOST CODE */
 
-#include <cuda_runtime.h>
+
 #define gpuErrchk(ans)                  \
 {                                       \
   gpuAssert((ans), __FILE__, __LINE__); \
@@ -273,6 +341,18 @@ int main(int argc, char **argv)
   /* Stop and print timer. */
   polybench_stop_instruments;
   polybench_print_instruments;
+
+  Timer cpyTimer_h = retrieveTimer(cpyTimer);
+  Timer sumTimer_h = retrieveTimer(sumTimer);
+  Timer kernelTimer_h = retrieveTimer(kernelTimer);
+  Timer sync1Timer_h = retrieveTimer(sync1Timer);
+  Timer sync2Timer_h = retrieveTimer(sync2Timer);
+
+  printf("%lu (Kernel)\n", kernelTimer_h.total());
+  printf("%.2lf (Cpy)\n", (double)cpyTimer_h.total() / kernelTimer_h.total());
+  printf("%.2lf (Sum)\n", (double)sumTimer_h.total() / kernelTimer_h.total());
+  printf("%.2lf (Sync1)\n", (double)sync1Timer_h.total() / kernelTimer_h.total());
+  printf("%.2lf (Sync2)\n", (double)sync2Timer_h.total() / kernelTimer_h.total());
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */

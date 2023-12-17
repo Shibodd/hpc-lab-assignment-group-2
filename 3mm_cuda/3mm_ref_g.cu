@@ -177,6 +177,7 @@ __global__ void mm3_kernel3 (int ni, int nj, int nk, int nl, int nm,
 	}
 }
 
+extern double polybench_program_total_flops;
 int main(int argc, char **argv)
 {
   /* Retrieve problem size. */
@@ -194,6 +195,8 @@ int main(int argc, char **argv)
   POLYBENCH_2D_ARRAY_DECL(C, DATA_TYPE, NJ, NM, nj, nm);
   POLYBENCH_2D_ARRAY_DECL(D, DATA_TYPE, NM, NL, nm, nl);
   POLYBENCH_2D_ARRAY_DECL(G, DATA_TYPE, NI, NL, ni, nl);
+
+  polybench_program_total_flops = (2.0 * ni * nk * nj) + (2.0 * nj * nl * nm) + (2.0 * ni * nl * nj);
 
   /* Initialize array(s). */
   init_array(ni, nj, nk, nl, nm,
@@ -215,6 +218,7 @@ int main(int argc, char **argv)
 
   /* Stop and print timer. */
   polybench_stop_instruments;
+  printf("CPU:\n");
   polybench_print_instruments;
 
 
@@ -266,8 +270,9 @@ int main(int argc, char **argv)
 	cudaFree(d_c);
 	cudaFree(d_d);
 
-	  polybench_stop_instruments;
-	  polybench_print_instruments;
+  polybench_stop_instruments;
+  printf("GPU:\n");
+  polybench_print_instruments;
 
 
   /* Prevent dead-code elimination. All live-out data must be printed

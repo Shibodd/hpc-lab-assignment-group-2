@@ -205,6 +205,7 @@ int main(int argc, char **argv)
              POLYBENCH_ARRAY(C),
              POLYBENCH_ARRAY(D));
 
+  #ifdef M_HOST
   /* Run kernel. */
   polybench_start_instruments;
   kernel_3mm(ni, nj, nk, nl, nm,
@@ -220,6 +221,7 @@ int main(int argc, char **argv)
   polybench_stop_instruments;
   printf("CPU:\n");
   polybench_print_instruments;
+  #endif
 
 
   /* Start timer. */

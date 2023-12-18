@@ -3,6 +3,7 @@
 
 /* Default to STANDARD_DATASET. */
 # if !defined(MINI_DATASET) && !defined(SMALL_DATASET) && !defined(MEDIUM_DATASET) && !defined(STANDARD_DATASET) && !defined(LARGE_DATASET) && !defined(EXTRALARGE_DATASET)
+#warning "NO DATASET SPECIFIED! DEFAULTING TO STANDARD"
 #define STANDARD_DATASET
 # endif
 
